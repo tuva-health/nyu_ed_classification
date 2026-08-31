@@ -17,16 +17,17 @@ clean-targets:
 
 vars:
   tuva_last_run: '{{ run_started_at.astimezone(modules.pytz.timezone("UTC")) }}'
+  nyu_ed_classification_data_asset_version: '1.0.0'
 
 seeds:
   nyu_ed_classification:
     value_sets:
       ed_classification:
         ed_classification__categories:
-          +post-hook: "{{ the_tuva_project.load_package_seed('nyu-ed-classification', nyu_ed_classification.get_nyu_ed_classification_package_version(), 'ed_classification__categories.csv.gz') }}"
+          +post-hook: "{{ the_tuva_project.load_package_seed('data-marts/nyu-ed-classification', var('nyu_ed_classification_data_asset_version'), 'ed_classification__categories.csv.gz') }}"
         ed_classification__icd_10_cm_to_ccs:
-          +post-hook: "{{ the_tuva_project.load_package_seed('nyu-ed-classification', nyu_ed_classification.get_nyu_ed_classification_package_version(), 'ed_classification__icd_10_cm_to_ccs.csv.gz') }}"
+          +post-hook: "{{ the_tuva_project.load_package_seed('data-marts/nyu-ed-classification', var('nyu_ed_classification_data_asset_version'), 'ed_classification__icd_10_cm_to_ccs.csv.gz') }}"
         ed_classification__johnston_icd10:
-          +post-hook: "{{ the_tuva_project.load_package_seed('nyu-ed-classification', nyu_ed_classification.get_nyu_ed_classification_package_version(), 'ed_classification__johnston_icd10.csv.gz') }}"
+          +post-hook: "{{ the_tuva_project.load_package_seed('data-marts/nyu-ed-classification', var('nyu_ed_classification_data_asset_version'), 'ed_classification__johnston_icd10.csv.gz') }}"
         ed_classification__johnston_icd9:
-          +post-hook: "{{ the_tuva_project.load_package_seed('nyu-ed-classification', nyu_ed_classification.get_nyu_ed_classification_package_version(), 'ed_classification__johnston_icd9.csv.gz') }}"
+          +post-hook: "{{ the_tuva_project.load_package_seed('data-marts/nyu-ed-classification', var('nyu_ed_classification_data_asset_version'), 'ed_classification__johnston_icd9.csv.gz') }}"
