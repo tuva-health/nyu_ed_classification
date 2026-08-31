@@ -11,7 +11,7 @@ models:
 
       It then joins the ED classification categories, provider terminology, and patient attributes to assemble the final summary table.
 
-      Table grain: One record per emergency department encounter.
+      Table grain: One record per emergency department encounter and data source.
     config:
       schema: |
         {%- if var('tuva_schema_prefix',None) != None -%}{{var('tuva_schema_prefix')}}_ed_classification
@@ -23,9 +23,6 @@ models:
       - name: encounter_id
         description: Unique identifier for the emergency department encounter.
         tests:
-          - unique:
-              config:
-                severity: error
           - not_null:
               config:
                 severity: error
@@ -155,11 +152,15 @@ models:
             terminology: https://thetuvaproject.com/terminology/race
             data_type: varchar
       - name: data_source
-        description: The data source associated with the patient record used to enrich
-          the encounter.
+        description: The data source associated with the emergency department encounter.
+        tests:
+          - not_null:
+              config:
+                severity: error
         config:
           meta:
             data_type: varchar
+            is_primary_key: true
 
   - name: ed_classification__int_filter_encounter_with_classification
     description: |-
@@ -171,7 +172,7 @@ models:
 
       It assigns the encounter to the category with the highest Johnston probability across the ED classification columns.
 
-      Table grain: One record per classified emergency department encounter.
+      Table grain: One record per classified emergency department encounter and data source.
     config:
       schema: |
         {%- if var('tuva_schema_prefix',None) != None -%}{{var('tuva_schema_prefix')}}_ed_classification
@@ -182,26 +183,52 @@ models:
     columns:
       - name: encounter_id
         description: Unique identifier for the emergency department encounter.
+      - name: data_source
+        description: Source system associated with the emergency department encounter.
       - name: primary_diagnosis_code
         description: Primary diagnosis code for the encounter.
       - name: primary_diagnosis_code_type
         description: Coding system used for the primary diagnosis code.
       - name: edcnnpa
         description: Emergent, ED Care Needed, Not Preventable/Avoidable probability.
+        config:
+          meta:
+            data_type: number
       - name: edcnpa
         description: Emergent, ED Care Needed, Preventable/Avoidable probability.
+        config:
+          meta:
+            data_type: number
       - name: epct
         description: Emergent, Primary Care Treatable probability.
+        config:
+          meta:
+            data_type: number
       - name: noner
         description: Non-Emergent probability.
+        config:
+          meta:
+            data_type: number
       - name: injury
         description: Injury-related probability.
+        config:
+          meta:
+            data_type: number
       - name: psych
         description: Mental health-related probability.
+        config:
+          meta:
+            data_type: number
       - name: alcohol
         description: Alcohol-related probability.
+        config:
+          meta:
+            data_type: number
       - name: drug
         description: Drug-related probability.
+        config:
+          meta:
+            data_type: number
       - name: ed_classification_capture
         description: Indicator that the primary diagnosis code matched a Johnston lookup
           row and has ED classification probabilities available.
@@ -216,13 +243,13 @@ models:
     description: |-
       Emergency department encounter primary diagnosis codes mapped to the Johnston ED classification probability columns.
 
-      This model reads emergency department encounters from core__encounter and keeps only encounter_id, primary_diagnosis_code, and primary_diagnosis_code_type.
+      This model reads emergency department encounters from core__encounter and keeps encounter_id, data_source, primary_diagnosis_code, and primary_diagnosis_code_type.
 
       It joins ICD-10-CM and ICD-9-CM diagnosis codes to the Johnston ED classification lookup seeds.
 
       It outputs the Johnston probability columns together with ed_classification_capture, which flags diagnosis codes that were found in the lookup.
 
-      Table grain: One record per emergency department encounter diagnosis mapping result.
+      Table grain: One record per emergency department encounter diagnosis mapping result and data source.
     config:
       schema: |
         {%- if var('tuva_schema_prefix',None) != None -%}{{var('tuva_schema_prefix')}}_ed_classification
@@ -233,6 +260,8 @@ models:
     columns:
       - name: encounter_id
         description: Unique identifier for the emergency department encounter.
+      - name: data_source
+        description: Source system associated with the emergency department encounter.
       - name: primary_diagnosis_code
         description: Primary diagnosis code for the encounter.
       - name: primary_diagnosis_code_type

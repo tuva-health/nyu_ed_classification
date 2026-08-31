@@ -12,6 +12,7 @@ indicators of ED classification terminology
 with condition as (
     select
         encounter_id
+        , data_source
         , primary_diagnosis_code
         , primary_diagnosis_code_type
     from {{ ref('core__encounter') }}
@@ -40,6 +41,7 @@ with condition as (
 
 select
    a.encounter_id
+   , a.data_source
    , a.primary_diagnosis_code
    , a.primary_diagnosis_code_type
    {% for colname in colnames %}
@@ -55,6 +57,7 @@ union all
 
 select
    a.encounter_id
+   , a.data_source
    , a.primary_diagnosis_code
    , a.primary_diagnosis_code_type
    {% for colname in colnames %}

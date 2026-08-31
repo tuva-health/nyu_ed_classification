@@ -1,0 +1,184 @@
+version: 2
+
+unit_tests:
+  - name: test_map_primary_dx_preserves_data_source
+    description: >
+      Encounters that reuse an identifier in different sources remain
+      independently attributable through diagnosis mapping.
+    model: ed_classification__map_primary_dx
+    config:
+      enabled: "{{ var('claims_enabled', False) | as_bool }}"
+    overrides:
+      vars:
+        claims_enabled: true
+    given:
+      - input: ref('core__encounter')
+        format: sql
+        rows: |
+          select
+              'encounter-1' as encounter_id
+            , 'source-a' as data_source
+            , 'emergency department' as encounter_type
+            , 'A000' as primary_diagnosis_code
+            , 'icd-10-cm' as primary_diagnosis_code_type
+          union all
+          select
+              'encounter-1', 'source-b', 'emergency department', 'A000',
+              'icd-10-cm'
+      - input: ref('ed_classification__johnston_icd10')
+        format: sql
+        rows: |
+          select
+              'A000' as icd10
+            , '0.90' as edcnnpa
+            , '0.10' as edcnpa
+            , '0.00' as epct
+            , '0.00' as noner
+            , '0.00' as injury
+            , '0.00' as psych
+            , '0.00' as alcohol
+            , '0.00' as drug
+      - input: ref('ed_classification__johnston_icd9')
+        format: sql
+        rows: |
+          select
+              '9999' as icd9
+            , '0' as edcnnpa
+            , '0' as edcnpa
+            , '0' as epct
+            , '0' as noner
+            , '0' as injury
+            , '0' as psych
+            , '0' as alcohol
+            , '0' as drug
+    expect:
+      rows:
+        - encounter_id: encounter-1
+          data_source: source-a
+          primary_diagnosis_code: A000
+          ed_classification_capture: 1
+        - encounter_id: encounter-1
+          data_source: source-b
+          primary_diagnosis_code: A000
+          ed_classification_capture: 1
+
+  - name: test_filter_classification_compares_numeric_probabilities
+    description: >
+      Numeric probability comparison selects 10 over 9 even when the package
+      seed values arrive as strings, while retaining source scope.
+    model: ed_classification__int_filter_encounter_with_classification
+    config:
+      enabled: "{{ var('claims_enabled', False) | as_bool }}"
+    overrides:
+      vars:
+        claims_enabled: true
+    given:
+      - input: ref('ed_classification__map_primary_dx')
+        format: sql
+        rows: |
+          select
+              'encounter-1' as encounter_id
+            , 'source-a' as data_source
+            , 'A000' as primary_diagnosis_code
+            , 'icd-10-cm' as primary_diagnosis_code_type
+            , '9' as edcnnpa
+            , '10' as edcnpa
+            , '0' as epct
+            , '0' as noner
+            , '0' as injury
+            , '0' as psych
+            , '0' as alcohol
+            , '0' as drug
+            , 1 as ed_classification_capture
+    expect:
+      rows:
+        - encounter_id: encounter-1
+          data_source: source-a
+          classification: edcnpa
+
+  - name: test_summary_joins_classification_within_data_source
+    description: >
+      Reused encounter and person identifiers receive only the classification
+      and patient attributes belonging to the same data source.
+    model: ed_classification__summary
+    config:
+      enabled: "{{ var('claims_enabled', False) | as_bool }}"
+    overrides:
+      vars:
+        claims_enabled: true
+    given:
+      - input: ref('core__encounter')
+        format: sql
+        rows: |
+          select
+              'encounter-1' as encounter_id
+            , 'source-a' as data_source
+            , 'emergency department' as encounter_type
+            , 'person-1' as person_id
+            , cast('2024-01-15' as date) as encounter_end_date
+            , 'A000' as primary_diagnosis_code
+            , 'Test diagnosis' as primary_diagnosis_description
+            , 100 as paid_amount
+            , 120 as allowed_amount
+            , 150 as charge_amount
+            , '1111111111' as facility_npi
+          union all
+          select
+              'encounter-1', 'source-b', 'emergency department', 'person-1',
+              cast('2024-01-15' as date), 'A000', 'Test diagnosis', 100, 120,
+              150, '1111111111'
+      - input: ref('ed_classification__int_filter_encounter_with_classification')
+        format: sql
+        rows: |
+          select
+              'encounter-1' as encounter_id
+            , 'source-a' as data_source
+            , 'edcnnpa' as classification
+          union all
+          select 'encounter-1', 'source-b', 'drug'
+      - input: ref('ed_classification__categories')
+        format: sql
+        rows: |
+          select
+              'edcnnpa' as classification
+            , 'Emergent' as classification_name
+            , '1' as classification_order
+          union all
+          select 'drug', 'Drug related', '8'
+      - input: ref('provider_data__provider')
+        format: sql
+        rows: |
+          select
+              '1111111111' as npi
+            , 'Test Facility' as provider_organization_name
+            , 'CO' as practice_state
+            , 'Denver' as practice_city
+            , '80202' as practice_zip_code
+      - input: ref('core__patient')
+        format: sql
+        rows: |
+          select
+              'person-1' as person_id
+            , 'source-a' as data_source
+            , 'female' as sex
+            , cast('1980-01-01' as date) as birth_date
+            , '80202' as zip_code
+            , 39.75 as latitude
+            , -104.99 as longitude
+            , 'test race' as race
+          union all
+          select
+              'person-1', 'source-b', 'male', cast('1980-01-01' as date),
+              '80202', 39.75, -104.99, 'test race'
+    expect:
+      rows:
+        - encounter_id: encounter-1
+          data_source: source-a
+          ed_classification_description: Emergent
+          ed_classification_order: 1
+          patient_sex: female
+        - encounter_id: encounter-1
+          data_source: source-b
+          ed_classification_description: Drug related
+          ed_classification_order: 8
+          patient_sex: male
