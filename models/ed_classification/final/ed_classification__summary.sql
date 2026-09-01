@@ -7,7 +7,7 @@
 select
     encounter.encounter_id
     , cat.classification_name as ed_classification_description
-    , cat.classification_order as ed_classification_order
+    , cast(cat.classification_order as {{ dbt.type_int() }}) as ed_classification_order
     , encounter.person_id
     , encounter.encounter_end_date
     , {{ the_tuva_project.concat_custom([the_tuva_project.date_part('year', 'encounter.encounter_end_date'),
@@ -30,10 +30,11 @@ select
     , latitude as patient_latitude
     , longitude as patient_longitude
     , race as patient_race
-    , pat.data_source
+    , encounter.data_source
 from {{ ref('core__encounter') }} as encounter
 left outer join {{ ref('ed_classification__int_filter_encounter_with_classification') }} as class
     on encounter.encounter_id = class.encounter_id
+    and encounter.data_source = class.data_source
 left outer join {{ ref('ed_classification__categories') }} as cat
     on class.classification = cat.classification
 left outer join {{ ref('provider_data__provider') }} as fac_prov
